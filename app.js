@@ -13,15 +13,31 @@
 var BudgetController = (function () {
 	var Incomes = function (id, desc, value) {
 		this.id = id,
-			this.desc = desc,
-			this.value = value
+		this.desc = desc,
+		this.value = value
 	};
 
 	var Expenses = function (id, desc, value) {
 		this.id = id,
-			this.desc = desc,
-			this.value = value
+		this.desc = desc,
+		this.value = value,
+		this.percentage = -1;
 	};
+
+	//create calculate percentage prototype method for EXP
+	Expenses.prototype.calcPercentage = function (totalInc) {
+		if (totalInc > 0) {
+			this.percentage = Math.round((this.value / totalInc) * 100);
+		} else {
+			this.percentage = -1;
+		}
+	};
+
+	//create get percentage prototype method for Exp
+	//create percentage arr in exp
+	/*Expenses.prototype.getPercentage = function () {
+			return this.percentage;
+	};*/
 
 	//total inc and exp function
 	var totalType = function (type) {
@@ -76,7 +92,7 @@ var BudgetController = (function () {
 		deleteItem: function (type, ID) {
 			var ids, index;
 			//loop data structure's type and return id only
-			ids = data.items[type].map(function(current) {
+			ids = data.items[type].map(function (current) {
 				return current.id;
 			});
 
@@ -84,7 +100,7 @@ var BudgetController = (function () {
 			index = ids.indexOf(ID);
 
 			//-1 == index is not found => turn false
-			if(index !== -1){
+			if (index !== -1) {
 				//splice(current index, 1 value) --- if not put 1, it will remove the rest from current
 				data.items[type].splice(index, 1);
 			}
@@ -105,6 +121,21 @@ var BudgetController = (function () {
 			} else {
 				data.percentage = -1;
 			};
+		},
+
+		//calculate percentage fnc by using obj prototype method
+		calculatePercentage: function (){
+			data.items.exp.forEach(function (current) {
+				current.calcPercentage(data.totals.inc);
+			})
+		},
+
+		//get percentage arr into public envi
+		getPercentage: function (){
+			var allPerc = data.items.exp.map(function (current){
+				return current.percentage;
+			});
+			return allPerc;
 		},
 
 		//get budget data into public env
@@ -138,7 +169,8 @@ var UIController = (function () {
 		incTotalDOM: '.budget__incomes--value',
 		expTotalDOM: '.budget__expenses--value',
 		expPerDOM: '.budget__expenses--percentage',
-		containerDOM: '.container'
+		containerDOM: '.container',
+		itemPercDOM: '.item__percentage'
 	}
 	return {
 		//get input to public env
@@ -176,7 +208,7 @@ var UIController = (function () {
 		},
 
 		//delete items on UI
-		deleteItemsUI: function(htmlID){
+		deleteItemsUI: function (htmlID) {
 			var item = document.getElementById(htmlID);
 			item.parentNode.removeChild(item);
 
@@ -213,6 +245,30 @@ var UIController = (function () {
 			}
 		},
 
+		displayPercentage: function(percentage) {
+
+			//item nodes in html file selected by item percentage ID
+			var itemPerc = document.querySelectorAll(DOMstrings.itemPercDOM);
+
+			//create nodeList with custom forEach method
+			//nodes = itemPerc, callback fnc = function(current, index)
+			var nodeListForEach = function(nodes, callback){
+				for (i=0; i < nodes.length; i++){
+					//call the callback fnc to pass counters in paramter
+					callback(nodes[i], i);
+				}
+			};
+
+			//using custom forEach method for nodeList
+			//if percentage value > 0 => exp item exist => write its value to itemPercID on html
+			nodeListForEach(itemPerc, function(current, index){
+				if (percentage[index] > 0){
+					current.textContent = percentage[index] + '%';
+				}else
+					current.textContent = '---';
+			});
+		},
+
 		//get DOM fnc to public env
 		getDOM: function () {
 			return DOMstrings;
@@ -240,6 +296,7 @@ var AppController = (function (BudgetCtrl, UICtrl) {
 		document.querySelector(DOM.containerDOM).addEventListener('click', deleteItemCtrl);
 
 	}
+
 	//calculate and update budget function
 	var updateBudget = () => {
 		//calculate budget
@@ -250,6 +307,15 @@ var AppController = (function (BudgetCtrl, UICtrl) {
 		UICtrl.displayBudget(budget);
 	}
 
+	var updatePercentage = () => {
+		//calculate percentage
+		BudgetCtrl.calculatePercentage();
+		//get percentage from data structure
+		var percentage = BudgetCtrl.getPercentage();
+		//display percentage on UI
+		UICtrl.displayPercentage(percentage);
+	}
+
 	//add item function
 	var addItemCtrl = () => {
 		var getInput, newItem;
@@ -257,14 +323,17 @@ var AppController = (function (BudgetCtrl, UICtrl) {
 		getInput = UICtrl.getInput();
 		//in condition, desc is not empty, value is a number and greater than 0
 		if (getInput.description !== '' && !isNaN(getInput.value) && getInput.value > 0) {
+
 			//add item into budget controller
 			newItem = BudgetCtrl.newItem(getInput.type, getInput.description, getInput.value);
 			//add item into UI controler
 			UICtrl.addItemsUI(newItem, getInput.type);
 			//clear input fields
 			UICtrl.clearField();
-			//calculate budget after added item
+			//calculate and update budget after added item
 			updateBudget();
+			//calculate and update percentage
+			updatePercentage();
 		}
 	};
 
@@ -280,12 +349,14 @@ var AppController = (function (BudgetCtrl, UICtrl) {
 			type = itemSplit[0];
 			ID = parseInt(itemSplit[1]);
 
-		//delete item in data structure
-		BudgetCtrl.deleteItem(type,ID);
-		//delete item in UI
-		UICtrl.deleteItemsUI(itemID);
-		//calculate budget after deleted
-		updateBudget();
+			//delete item in data structure
+			BudgetCtrl.deleteItem(type, ID);
+			//delete item in UI
+			UICtrl.deleteItemsUI(itemID);
+			//calculate budget after deleted
+			updateBudget();
+			//calculate and update percentage
+			updatePercentage();
 		}
 	}
 
