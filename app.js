@@ -13,15 +13,15 @@
 var BudgetController = (function () {
 	var Incomes = function (id, desc, value) {
 		this.id = id,
-		this.desc = desc,
-		this.value = value
+			this.desc = desc,
+			this.value = value
 	};
 
 	var Expenses = function (id, desc, value) {
 		this.id = id,
-		this.desc = desc,
-		this.value = value,
-		this.percentage = -1;
+			this.desc = desc,
+			this.value = value,
+			this.percentage = -1;
 	};
 
 	//create calculate percentage prototype method for EXP
@@ -124,15 +124,15 @@ var BudgetController = (function () {
 		},
 
 		//calculate percentage fnc by using obj prototype method
-		calculatePercentage: function (){
+		calculatePercentage: function () {
 			data.items.exp.forEach(function (current) {
 				current.calcPercentage(data.totals.inc);
 			})
 		},
 
 		//get percentage arr into public envi
-		getPercentage: function (){
-			var allPerc = data.items.exp.map(function (current){
+		getPercentage: function () {
+			var allPerc = data.items.exp.map(function (current) {
 				return current.percentage;
 			});
 			return allPerc;
@@ -170,8 +170,39 @@ var UIController = (function () {
 		expTotalDOM: '.budget__expenses--value',
 		expPerDOM: '.budget__expenses--percentage',
 		containerDOM: '.container',
-		itemPercDOM: '.item__percentage'
-	}
+		itemPercDOM: '.item__percentage',
+		dateDOM: '.budget__title--month'
+	};
+
+	var formatNun = function (target, type) {
+		var num, dec;
+
+		//return absolute number > 0
+		num = Math.abs(target)
+		//toFixed is prototype of Number methods to return decimal number
+		num = target.toFixed(2);
+
+		//substr will get decimal number to dec variable
+		dec = num.substr(-3, 3);
+
+		//remove decimal number
+		num = Math.floor(num);
+
+		//add comma in every 3 number => 100,000,000
+		num = num.toLocaleString();
+
+		//num = num.toLocaleString();
+		return (type === 'inc' ? '+' : '-') + ' ' + num + dec;
+	};
+
+	//create nodeList with custom forEach method
+	//nodes = nodeElement in HTML, callback fnc = function(current, index)
+	var nodeListForEach = function (nodes, callback) {
+		for (i = 0; i < nodes.length; i++) {
+			//call the callback fnc to pass counters in paramter
+			callback(nodes[i], i);
+		}
+	};
 	return {
 		//get input to public env
 		getInput: function () {
@@ -201,7 +232,7 @@ var UIController = (function () {
 			//replace the placeholder text with input data
 			newHTML = html.replace('%id%', obj.id);
 			newHTML = newHTML.replace('%desc%', obj.desc);
-			newHTML = newHTML.replace('%value%', obj.value);
+			newHTML = newHTML.replace('%value%', formatNun(obj.value, type));
 
 			//parse HTML text into HTML file by insertAdjacentHTML ('position', ) text
 			document.querySelector(element).insertAdjacentHTML('beforeend', newHTML);
@@ -233,9 +264,12 @@ var UIController = (function () {
 
 		//display budget on UI
 		displayBudget: function (obj) {
-			document.querySelector(DOMstrings.budgetDOM).textContent = obj.budget;
-			document.querySelector(DOMstrings.incTotalDOM).textContent = '+ ' + obj.totalInc;
-			document.querySelector(DOMstrings.expTotalDOM).textContent = '- ' + obj.totalExp;
+			var type;
+			obj.budget >= 0 ? type = 'inc' : type = 'exp';
+
+			document.querySelector(DOMstrings.budgetDOM).textContent = formatNun(obj.budget, type);
+			document.querySelector(DOMstrings.incTotalDOM).textContent = formatNun(obj.totalInc, 'inc');
+			document.querySelector(DOMstrings.expTotalDOM).textContent = formatNun(obj.totalExp, 'exp');
 
 
 			if (obj.percentage > 0) {
@@ -245,30 +279,50 @@ var UIController = (function () {
 			}
 		},
 
-		displayPercentage: function(percentage) {
+		//display percentage of each item
+		displayPercentage: function (percentage) {
 
 			//item nodes in html file selected by item percentage ID
 			var itemPerc = document.querySelectorAll(DOMstrings.itemPercDOM);
 
-			//create nodeList with custom forEach method
-			//nodes = itemPerc, callback fnc = function(current, index)
-			var nodeListForEach = function(nodes, callback){
-				for (i=0; i < nodes.length; i++){
-					//call the callback fnc to pass counters in paramter
-					callback(nodes[i], i);
-				}
-			};
-
 			//using custom forEach method for nodeList
 			//if percentage value > 0 => exp item exist => write its value to itemPercID on html
-			nodeListForEach(itemPerc, function(current, index){
-				if (percentage[index] > 0){
+			nodeListForEach(itemPerc, function (current, index) {
+				if (percentage[index] > 0) {
 					current.textContent = percentage[index] + '%';
-				}else
+				} else
 					current.textContent = '---';
 			});
 		},
 
+		displayDate: function () {
+			var date;
+
+			date = new Date();
+
+			//month = date.getMonth();
+			//year = date.getFullYear();
+			date = date.toLocaleString('default', {
+				month: 'long'
+			}) + ' ' + date.getFullYear();
+
+			return document.querySelector(DOMstrings.dateDOM).textContent = date;
+		},
+
+		changeInputField: function () {
+
+			var nodeFields = document.querySelectorAll(
+				DOMstrings.typeDOM + ',' +
+				DOMstrings.descDOM + ',' +
+				DOMstrings.valueDOM);
+
+			nodeListForEach(nodeFields, function(current){
+				current.classList.toggle('red-focus');
+			});
+
+			document.querySelector(DOMstrings.btnDOM).classList.toggle('red');
+
+		},
 		//get DOM fnc to public env
 		getDOM: function () {
 			return DOMstrings;
@@ -294,6 +348,8 @@ var AppController = (function (BudgetCtrl, UICtrl) {
 
 		//When deteled btn is clicked, using event delegation to bubble the parent element and callback the function delete
 		document.querySelector(DOM.containerDOM).addEventListener('click', deleteItemCtrl);
+
+		document.querySelector(DOM.typeDOM).addEventListener('change', UICtrl.changeInputField);
 
 	}
 
@@ -363,6 +419,7 @@ var AppController = (function (BudgetCtrl, UICtrl) {
 	return {
 		init: () => {
 			console.log('The application running ...');
+			UICtrl.displayDate();
 			UICtrl.displayBudget({
 				budget: 0,
 				percentage: 0,
